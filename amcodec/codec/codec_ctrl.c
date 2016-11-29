@@ -25,8 +25,6 @@
 #include "codec_h_ctrl.h"
 #include <adec-external-ctrl.h>
 
-#include "codec_sw_decoder.h"
-
 #define SUBTITLE_EVENT
 #define TS_PACKET_SIZE 188
 #define DEMUX_PLAYER_SOURCE 1
@@ -303,16 +301,14 @@ static inline int codec_video_es_init(codec_para_t *pcodec)
 
     flags |= pcodec->noblock ? O_NONBLOCK : 0;
     if(pcodec->video_type == VFORMAT_HEVC || pcodec->video_type == VFORMAT_VP9) {
-		printf("OPEN es hevc/vp9\n");
+		printf("OPEN es hevc\n");
       handle = codec_h_open(CODEC_VIDEO_ES_HEVC_DEVICE, flags);
-    } else if (pcodec->video_type == VFORMAT_SWCODEC) {
-        printf("OPEN es swcodec\n");
-		codec_sw_decoder_init(pcodec);
-    } else {
-        CODEC_PRINT("OPEN es DEVICE\n");
-        handle = codec_h_open(CODEC_VIDEO_ES_DEVICE, flags);
     }
-
+    else {
+		CODEC_PRINT("OPEN es DEVICE\n");
+      handle = codec_h_open(CODEC_VIDEO_ES_DEVICE, flags);
+    }
+    
     if (handle < 0) {
         codec_r = system_error_to_codec_error(handle);
         print_error_msg(codec_r, errno, __FUNCTION__, __LINE__);
@@ -729,16 +725,12 @@ int codec_init(codec_para_t *pcodec)
         return -CODEC_ERROR_SET_BUFSIZE_FAILED;
     }
 
-	if (pcodec->video_type != VFORMAT_SWCODEC) {
-	    CODEC_PRINT("[%s %d]type =%d\n", __FUNCTION__, __LINE__,pcodec->stream_type);
-	    ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_PORT_INIT, 0);
-	    if (ret != 0) {
-			CODEC_PRINT("[%s %d]\n", __FUNCTION__, __LINE__);
+    ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_PORT_INIT, 0);
+    if (ret != 0) {
 
-	        return -CODEC_ERROR_INIT_FAILED;
-	    }
-	}
-    CODEC_PRINT("[%s %d]\n", __FUNCTION__, __LINE__);
+        return -CODEC_ERROR_INIT_FAILED;
+    }
+    
     if (pcodec->has_audio) {
         arm_audio_info a_ainfo;
         memset(&a_ainfo,0,sizeof(arm_audio_info));
@@ -802,23 +794,7 @@ void codec_audio_basic_init(void)
 /* --------------------------------------------------------------------------*/
 int codec_write(codec_para_t *pcodec, void *buffer, int len)
 {
-	if (pcodec->video_type == VFORMAT_SWCODEC) {
-		CODEC_PRINT("[%s %d] video_type:%d\n", __FUNCTION__, __LINE__, pcodec->video_type);
-	}
-
     return codec_h_write(pcodec->handle, buffer, len);
-}
-
-int codec_write_swcodec(codec_para_t *pcodec, AVPacket *avpkt)
-{
-    int ret;
-
-	ret = codec_sw_decoder_write(pcodec, avpkt);
-
-    if(CODEC_ERROR_NONE == ret)
-        return avpkt->size;
-
-    return 0;
 }
 
 /* --------------------------------------------------------------------------*/
@@ -849,12 +825,6 @@ int codec_read(codec_para_t *pcodec, void *buffer, int len)
 int codec_close(codec_para_t *pcodec)
 {	
     int res = 0;
-	CODEC_PRINT("[%s %d]\n", __FUNCTION__, __LINE__);
-	
-    if (pcodec->video_type == VFORMAT_SWCODEC) {
-        codec_sw_decoder_release(pcodec);
-        return 0;
-    }
 
     if (pcodec->has_audio) {
         audio_stop(&pcodec->adec_priv);
@@ -865,17 +835,9 @@ int codec_close(codec_para_t *pcodec)
         res |= codec_close_sub_fd(pcodec->sub_handle);
     }
 #endif
-    if (pcodec->has_video) 
+
     res |= codec_close_cntl(pcodec);
     res |= codec_h_close(pcodec->handle);
-	
-#ifdef SAVE_YUV_FILE
-			CODEC_PRINT("Output file closing\n");
-			if (out_fp >= 0) {
-				close(out_fp);
-			}
-			CODEC_PRINT("Output file closed\n");
-#endif
 
     return res;
 }
@@ -967,21 +929,7 @@ void codec_resume_audio(codec_para_t *pcodec, unsigned int orig)
 int codec_checkin_pts(codec_para_t *pcodec, unsigned long pts)
 {
     //CODEC_PRINT("[%s:%d]pts=%x(%d)\n",__FUNCTION__,__LINE__,pts,pts/90000);
-
-	if (pcodec->video_type == VFORMAT_SWCODEC) {
-        return 0;
-	}
-
     return codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_TSTAMP, pts);
-}
-
-int codec_checkin_video_ratio(float ratio)
-{
-    CODEC_PRINT("[%s:%d]ratio:%f\n",__FUNCTION__,__LINE__, ratio);
-
-	codec_sw_decoder_set_ratio(ratio);
-
-    return -1;
 }
 
 /* --------------------------------------------------------------------------*/
@@ -997,10 +945,6 @@ int codec_checkin_video_ratio(float ratio)
 int codec_get_vbuf_state(codec_para_t *p, struct buf_status *buf)
 {
     int r;
-
-	if (p->video_type == VFORMAT_SWCODEC) {
-        return 0;
-	}
     if(codec_h_is_support_new_cmd()) {
         struct buf_status status;
         r = codec_h_ioctl(p->handle, AMSTREAM_IOC_GET_EX, AMSTREAM_GET_EX_VB_STATUS, (unsigned long)&status);
@@ -1050,11 +994,6 @@ int codec_get_abuf_state(codec_para_t *p, struct buf_status *buf)
 int codec_get_vdec_state(codec_para_t *p, struct vdec_status *vdec)
 {
     int r;
-	if (p->video_type == VFORMAT_SWCODEC) {
-		
-        return 0;
-	}
-	
     if(codec_h_is_support_new_cmd()) {
         struct vdec_status vstatus;
         r = codec_h_ioctl(p->handle, AMSTREAM_IOC_GET_EX, AMSTREAM_GET_EX_VDECSTAT, (unsigned long)&vstatus);
@@ -1813,11 +1752,6 @@ int codec_get_vpts(codec_para_t *pcodec)
         CODEC_PRINT("[%s]ERROR invalid pointer!\n", __FUNCTION__);
         return -1;
     }
-	
-	if (pcodec->video_type == VFORMAT_SWCODEC) {
-		codec_sw_decoder_getvpts(pcodec, &vpts);
-        return 0;
-	}
 
     ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_GET, AMSTREAM_GET_VPTS, (unsigned long)&vpts);
     if (ret < 0) {
@@ -1846,11 +1780,6 @@ int codec_get_pcrscr(codec_para_t *pcodec)
         CODEC_PRINT("[%s]ERROR invalid pointer!\n", __FUNCTION__);
         return -1;
     }
-	
-	if (pcodec->video_type == VFORMAT_SWCODEC) {
-		codec_sw_decoder_getpcr(pcodec, (unsigned long)&pcrscr);
-        return 0;
-	}
 
     ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_GET, AMSTREAM_GET_PCRSCR, (unsigned long)&pcrscr);
     if (ret < 0) {
@@ -1880,11 +1809,6 @@ int codec_set_pcrscr(codec_para_t *pcodec, int val)
         CODEC_PRINT("[%s]ERROR invalid pointer!\n", __FUNCTION__);
         return -1;
     }
-	
-	if (pcodec->video_type == VFORMAT_SWCODEC) {
-		CODEC_PRINT("[%s] val:%x\n", __FUNCTION__, val);
-        return 0;
-	}
 
     ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_PCRSCR, val);
     if (ret < 0) {
@@ -2385,9 +2309,9 @@ int codec_set_vsync_upint(codec_para_t *pcodec, unsigned int mode)
 {
     return codec_h_control(pcodec->cntl_handle, AMSTREAM_IOC_SET_VSYNC_UPINT, (unsigned long)mode);
 }
-int codec_set_drmmode(codec_para_t *pcodec)
+int codec_set_drmmode(codec_para_t *pcodec, unsigned int mode)
 {
-    return codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_DRMMODE, 0);
+    return codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_DRMMODE, mode);
 }
 
 /**

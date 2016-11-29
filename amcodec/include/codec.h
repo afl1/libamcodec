@@ -48,9 +48,7 @@ int codec_audio_reinit(codec_para_t *pcodec);
 int codec_set_dec_reset(codec_para_t *pcodec);
 
 int codec_write(codec_para_t *pcodec, void *buffer, int len);
-int codec_write_swcodec(codec_para_t *pcodec, AVPacket *avpkt);
 int codec_checkin_pts(codec_para_t *pcodec, unsigned long pts);
-int codec_checkin_video_ratio(float ratio);
 int codec_get_vbuf_state(codec_para_t *, struct buf_status *);
 int codec_get_abuf_state(codec_para_t *, struct buf_status *);
 int codec_get_vdec_state(codec_para_t *, struct vdec_status *);
@@ -116,6 +114,8 @@ int codec_get_video_cur_bitrate(codec_para_t *pcodec,int *bitrate);
 int codec_get_audio_cur_bitrate(codec_para_t *pcodec,int *bitrate);
 
 int codec_set_vsync_upint(codec_para_t *pcodec, unsigned int mode);
+
+int codec_set_drmmode(codec_para_t *pcodec, unsigned int mode);
 
 int codec_get_last_checkout_apts(codec_para_t* pcodec, unsigned long *apts);
 int codec_get_last_checkin_apts(codec_para_t* pcodec, unsigned long *apts);

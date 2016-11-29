@@ -96,16 +96,6 @@ unsigned int noblock:
     int SessionID;
 	int dspdec_not_supported;//check some profile that audiodsp decoder can not support,we switch to arm decoder
 	int switch_audio_flag;		//<switch audio flag switching(1) else(0)
-	//for software decoder
-	int codec_id;
-    int extradata_size;
-    char *extradata;
-	AVFrame *picture;
-	AVCodecContext *ic;
-	AVCodec *codec;
-	struct avpkt_node_list *avpkt_node_list;
-    int status;
-	struct amvideo_dev *amvideo_dev;
 } codec_para_t;
 
 typedef struct 

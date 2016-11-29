@@ -425,28 +425,14 @@ int alsa_init_raw(struct aml_audio_dec* audec)
 
     int dgraw = amsysfs_get_sysfs_int("/sys/class/audiodsp/digital_raw");
 
-    if(AUDIO_SPDIF_PASSTHROUGH == dgraw){
-        if(audec->format == ACODEC_FMT_AC3 || audec->format == ACODEC_FMT_EAC3){
-            amsysfs_set_sysfs_int("/sys/class/audiodsp/digital_codec",2);
-            audec->codec_type=1;
-        }else if(audec->format == ACODEC_FMT_DTS){
-            amsysfs_set_sysfs_int("/sys/class/audiodsp/digital_codec",3);
-            audec->codec_type=3;
-
-        }
-    }else if(AUDIO_HDMI_PASSTHROUGH == dgraw){
-        if(audec->format == ACODEC_FMT_AC3){
-            amsysfs_set_sysfs_int("/sys/class/audiodsp/digital_codec",2);
-            audec->codec_type=1;
-        }else if(audec->format == ACODEC_FMT_EAC3){
-            amsysfs_set_sysfs_int("/sys/class/audiodsp/digital_codec",4);
-            audec->codec_type=2;
-        }else if(audec->format == ACODEC_FMT_DTS){
-            amsysfs_set_sysfs_int("/sys/class/audiodsp/digital_codec",3);
-            audec->codec_type=3;
-
-        }
-
+    if((AUDIO_SPDIF_PASSTHROUGH == dgraw)||(AUDIO_HDMI_PASSTHROUGH == dgraw)){
+    if(audec->format == ACODEC_FMT_AC3){
+        amsysfs_set_sysfs_int("/sys/class/audiodsp/digital_codec",2);
+        audec->codec_type=1;
+    }else if(audec->format == ACODEC_FMT_EAC3){
+        amsysfs_set_sysfs_int("/sys/class/audiodsp/digital_codec",4);
+        audec->codec_type=4;
+    }
     }
 
     if(AUDIO_PCM_OUTPUT == dgraw) {
@@ -714,8 +700,7 @@ int alsa_stop_raw(struct aml_audio_dec* audec)
     audec->aout_ops.private_data_raw = NULL;
     adec_print("exit alsa out raw stop\n");
     if((AUDIO_SPDIF_PASSTHROUGH == dgraw)||(AUDIO_HDMI_PASSTHROUGH == dgraw)){
-        if((audec->format == ACODEC_FMT_AC3) ||(audec->format == ACODEC_FMT_EAC3) || \
-			(audec->format == ACODEC_FMT_DTS)){
+        if((audec->format == ACODEC_FMT_AC3) ||(audec->format == ACODEC_FMT_EAC3) ){
             amsysfs_set_sysfs_int("/sys/class/audiodsp/digital_codec",0);
         }
     }
