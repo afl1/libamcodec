@@ -711,47 +711,35 @@ int codec_init(codec_para_t *pcodec)
     pcodec->cntl_handle = -1;
     pcodec->sub_handle = -1;
     pcodec->audio_utils_handle = -1;
-    if (pcodec->has_video) {
-       pcodec->use_hardabuf = 1;
-    } else {
-       char *value;
-       value= getenv("media_audio_use_hardabuf");
-       if ( value != NULL )
-           pcodec->use_hardabuf = atoi(value);
-       else
-           pcodec->use_hardabuf = 1;
-    }
     if (pcodec->audio_type == AFORMAT_MPEG1 || pcodec->audio_type == AFORMAT_MPEG2) {
         pcodec->audio_type = AFORMAT_MPEG;
     }
-    if ( pcodec->use_hardabuf) {
-        switch (pcodec->stream_type) {
-        case STREAM_TYPE_ES_VIDEO:
-            ret = codec_video_es_init(pcodec);
-            break;
-        case STREAM_TYPE_ES_AUDIO:
-
-              ret = codec_audio_es_init(pcodec);
-            break;
-        case STREAM_TYPE_ES_SUB:
-            ret = codec_sub_es_init(pcodec);
-            break;
-        case STREAM_TYPE_PS:
-            ret = codec_ps_init(pcodec);
-            break;
-        case STREAM_TYPE_TS:
-            ret = codec_ts_init(pcodec);
-            break;
-        case STREAM_TYPE_RM:
-            ret = codec_rm_init(pcodec);
-            break;
-        case STREAM_TYPE_UNKNOW:
-        default:
-            return -CODEC_ERROR_STREAM_TYPE_UNKNOW;
-        }
-        if (ret != 0) {
-            return ret;
-        }
+    switch (pcodec->stream_type) {
+    case STREAM_TYPE_ES_VIDEO:
+        ret = codec_video_es_init(pcodec);
+        break;
+    case STREAM_TYPE_ES_AUDIO:
+        ret = codec_audio_es_init(pcodec);
+        break;
+    case STREAM_TYPE_ES_SUB:
+        ret = codec_sub_es_init(pcodec);
+        break;
+    case STREAM_TYPE_PS:
+        ret = codec_ps_init(pcodec);
+        break;
+    case STREAM_TYPE_TS:
+        ret = codec_ts_init(pcodec);
+        break;
+    case STREAM_TYPE_RM:
+        ret = codec_rm_init(pcodec);
+        break;
+    case STREAM_TYPE_UNKNOW:
+    default:
+        return -CODEC_ERROR_STREAM_TYPE_UNKNOW;
+    }
+    if (ret != 0) {
+        return ret;
+    }
 
     ret = codec_init_cntl(pcodec);
     if (ret != CODEC_ERROR_NONE) {
@@ -765,8 +753,7 @@ int codec_init(codec_para_t *pcodec)
     ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_PORT_INIT, 0);
     if (ret != 0) {
 
-            return -CODEC_ERROR_INIT_FAILED;
-        }
+        return -CODEC_ERROR_INIT_FAILED;
     }
     if (pcodec->has_audio) {
         arm_audio_info a_ainfo;
@@ -784,7 +771,7 @@ int codec_init(codec_para_t *pcodec)
         a_ainfo.automute   = pcodec->automute_flag;
         a_ainfo.has_video  = pcodec->has_video;
         a_ainfo.associate_dec_supported  = pcodec->associate_dec_supported;
-        a_ainfo.use_hardabuf = pcodec->use_hardabuf;
+
         CODEC_PRINT("[%s]-[associate_dec_supported:%d]\n", __FUNCTION__, a_ainfo.associate_dec_supported);
         if (IS_AUIDO_NEED_EXT_INFO(pcodec->audio_type)) {
             if (pcodec->audio_type != AFORMAT_WMA && pcodec->audio_type != AFORMAT_WMAPRO && pcodec->audio_type != AFORMAT_WMAVOI) {
@@ -856,12 +843,7 @@ void codec_audio_basic_init(void)
 /* --------------------------------------------------------------------------*/
 int codec_write(codec_para_t *pcodec, void *buffer, int len)
 {
-    if (pcodec->use_hardabuf || pcodec->stream_type != STREAM_TYPE_ES_AUDIO) {
-        return codec_h_write(pcodec->handle, buffer, len);
-     } else {
-       //for software buf write
-       return acodec_buffer_write(pcodec->adec_priv, buffer, len);
-     }
+    return codec_h_write(pcodec->handle, buffer, len);
 }
 
 /* --------------------------------------------------------------------------*/
@@ -1024,10 +1006,7 @@ void codec_resume_audio(codec_para_t *pcodec, unsigned int orig)
 int codec_checkin_pts(codec_para_t *pcodec, unsigned long pts)
 {
     //CODEC_PRINT("[%s:%d]pts=%x(%d)\n",__FUNCTION__,__LINE__,pts,pts/90000);
-    if (pcodec->use_hardabuf || pcodec->stream_type != STREAM_TYPE_ES_AUDIO)
-        return codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_TSTAMP, pts);
-    else
-        return checkin_pts(pcodec->adec_priv,pts);
+    return codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_SET, AMSTREAM_SET_TSTAMP, pts);
 }
 
 /* --------------------------------------------------------------------------*/
@@ -1067,20 +1046,16 @@ int codec_get_vbuf_state(codec_para_t *p, struct buf_status *buf)
 int codec_get_abuf_state(codec_para_t *p, struct buf_status *buf)
 {
     int r;
-    if (p->use_hardabuf) {
-        if (codec_h_is_support_new_cmd()) {
-            struct buf_status status;
-            r = codec_h_ioctl(p->handle, AMSTREAM_IOC_GET_EX, AMSTREAM_GET_EX_AB_STATUS, (unsigned long)&status);
-            memcpy(buf, &status, sizeof(*buf));
-        } else {
-            struct am_io_param am_io;
-            r = codec_h_control(p->handle, AMSTREAM_IOC_AB_STATUS, (unsigned long)&am_io);
-            memcpy(buf, &am_io.status, sizeof(*buf));
-        }
-        return system_error_to_codec_error(r);
+    if (codec_h_is_support_new_cmd()) {
+        struct buf_status status;
+        r = codec_h_ioctl(p->handle, AMSTREAM_IOC_GET_EX, AMSTREAM_GET_EX_AB_STATUS, (unsigned long)&status);
+        memcpy(buf, &status, sizeof(*buf));
     } else {
-        return get_abuf_state(p->adec_priv,buf);
+        struct am_io_param am_io;
+        r = codec_h_control(p->handle, AMSTREAM_IOC_AB_STATUS, (unsigned long)&am_io);
+        memcpy(buf, &am_io.status, sizeof(*buf));
     }
+    return system_error_to_codec_error(r);
 }
 
 /* --------------------------------------------------------------------------*/
@@ -1829,15 +1804,13 @@ int codec_get_apts(codec_para_t *pcodec)
         CODEC_PRINT("[%s]ERROR invalid pointer!\n", __FUNCTION__);
         return -1;
     }
-    if (pcodec->use_hardabuf) {
-        ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_GET, AMSTREAM_GET_APTS, (unsigned long)&apts);
-        if (ret < 0) {
-            CODEC_PRINT("[%s]ioctl failed %d\n", __FUNCTION__, ret);
-            return -1;
-        }
-    } else {
-        ret = acodec_get_apts(pcodec->adec_priv,(unsigned long)&apts);
+
+    ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_GET, AMSTREAM_GET_APTS, (unsigned long)&apts);
+    if (ret < 0) {
+        CODEC_PRINT("[%s]ioctl failed %d\n", __FUNCTION__, ret);
+        return -1;
     }
+
     return apts;
 }
 
@@ -1854,6 +1827,7 @@ int codec_get_vpts(codec_para_t *pcodec)
 {
     unsigned int vpts;
     int ret;
+
     if (!pcodec) {
         CODEC_PRINT("[%s]ERROR invalid pointer!\n", __FUNCTION__);
         return -1;
@@ -2355,14 +2329,10 @@ int codec_get_audio_cur_delay_ms(codec_para_t *pcodec, int *delay_ms)
     int abuf_delay = 0;
     int adec_delay = 0;
     int ret = 0;
-    if (pcodec->use_hardabuf) {
-        ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_GET, AMSTREAM_GET_AUDIO_CUR_DELAY_MS, &abuf_delay);
-        if (ret < 0) {
-            CODEC_PRINT("[%s]ioctl failed %d\n", __FUNCTION__, ret);
-            return -1;
-        }
-    } else {
-        abuf_delay = 30;
+    ret = codec_h_ioctl(pcodec->handle, AMSTREAM_IOC_GET, AMSTREAM_GET_AUDIO_CUR_DELAY_MS, &abuf_delay);
+    if (ret < 0) {
+        CODEC_PRINT("[%s]ioctl failed %d\n", __FUNCTION__, ret);
+        return -1;
     }
     if (pcodec->has_audio) {
         adec_delay = audio_get_decoded_pcm_delay(pcodec->adec_priv);
