@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
+#include <linux/string.h> 
 #include <codec_error.h>
 #include <codec_type.h>
 #include <codec.h>

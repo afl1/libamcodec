@@ -1,13 +1,12 @@
+CC=${HOST_GCC}
+
+export CC
 all:
-	$(MAKE) -f Makefile.mk  TARGET=libamplayer.so
+	make -f Makefile.mk  TARGET=libamplayer.so
 	
 
 install:
-	$(MAKE) -f Makefile.mk TARGET=libamplayer.so  install
+	make -f Makefile.mk TARGET=libamplayer.so  install
 	
 clean:
-	-$(MAKE) -f Makefile.mk clean
-
-
-
-	
+	-make -f Makefile.mk clean

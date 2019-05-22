@@ -1,7 +1,7 @@
-PREFIX=$(LIBPLAYER_STAGING_DIR)/usr
 
+ROOTFS?=$(PREFIX)
 LIB_DIR?=$(PREFIX)/lib
-HEADERS_DIR?=$(PREFIX)/include
+HEADERS_DIR?=$(INC_DIR)/include
 CROSS=$(CC:%gcc=%)
 QUITE_CMD=1
 
@@ -21,23 +21,25 @@ SRC?=$(TOPDIR)
 SRCTREE=$(SRC)
 BUILDTREE=$(SRC)/out
 
-INSTALL_DIR=${LIB_DIR}
 
 TARGET?=libamcodec.so
 
-DIRS=audio_ctl/  codec/
+DIRS=audio_ctl/ codec/
 
-LDFLAGS=  -O2  -L$(LIB_DIR)  -lm -lc  -shared -Wl,--shared -Wl,-soname,$(TARGET)$(LIB_VERSION)
+LIB_VERSION=
+LIB_SUB_VERSION=.0.0
+
+LDFLAGS+=  -O2  -L$(PREFIX)/lib   -lm -lc  -shared -Wl,--shared -Wl,-soname,$(TARGET)$(LIB_VERSION)
 
 #INCLUDE=$(DIRS:%/=-I$(SRC)/%/include)
 INCLUDE=${SRCTREE}/include/
 #CFLAGS=-O0  -gdwarf-2  -g
-CFLAGS=-O2 -g  -I$(SRC)/include  -I${SRCTREE}/audio_ctl -I${SRCTREE}/amsub_ctl -I${SRCTREE}/codec -I${SRCTREE}/../amadec/include -I${SRCTREE}/codec/yuvplayer -fPIC
+CFLAGS=-O2 -g  -I$(SRC)/include  -I${SRCTREE}/audio_ctl -I${SRCTREE}/amsub_ctl -I${SRCTREE}/codec -I${SRCTREE}/../amadec/include -I${SRCTREE}/../amavutils/include -I${SRCTREE}/codec/yuvplayer -fPIC
 
 
 
 
-target_all=  $(TARGET)
+target_all=  $(TARGET)$(LIB_VERSION)$(LIB_SUB_VERSION)
 all:$(target_all)
 
 dirs=$(DIRS)
@@ -56,11 +58,11 @@ export CC CPP AS AR LD TOPDIR SRCTREE  CFLAGS LDFLAGS Q
 
 CLRDIR=$(dirs:%/=%-clrdir)
 clean:$(CLRDIR)
-	rm -rf $(target_all)
+	-rm -rf $(target_all)
 
 install:$(target_all)
-	-install  -m 755   $(TARGET)  $(INSTALL_DIR)
-	-install -m 555 $(TARGET) $(TARGET_DIR)/usr/lib
-	cp  -rf $(SRC)/include/*  $(HEADERS_DIR)/
-
-
+	install  $(INSTALL_FLAGS)	$(TARGET)$(LIB_VERSION)$(LIB_SUB_VERSION)  $(LIB_DIR)
+	mkdir -p $(HEADERS_DIR)
+	cp	-rf $(SRC)/include/*  $(HEADERS_DIR)/
+	-rm -f $(LIB_DIR)/$(TARGET)
+	-ln -s $(TARGET)$(LIB_VERSION)$(LIB_SUB_VERSION)  $(LIB_DIR)/$(TARGET)$(LIB_VERSION)

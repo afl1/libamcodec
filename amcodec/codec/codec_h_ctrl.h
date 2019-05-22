@@ -68,6 +68,19 @@ int codec_h_read(CODEC_HANDLE, void *, int);
 int codec_h_control(CODEC_HANDLE h, int cmd, unsigned long paramter);
 void codec_h_set_support_new_cmd(int value);
 int codec_h_is_support_new_cmd();
-
+int codec_h_ioctl(CODEC_HANDLE h, int cmd, int subcmd, unsigned long paramter);
+int audio_decode_basic_init(void);
+int audio_decoder_get_enable_status(void* handle);
+int audio_decoder_set_trackrate(void* handle, void *rate);
+int system_error_to_codec_error(int error);
+void print_error_msg(int error, int syserr, char *func, int line);
+int codec_set_drmmode(codec_para_t *pcodec, unsigned int setval);
+int audio_set_avsync_threshold(void *priv, int threshold);
+void audio_basic_init(void);
+void audio_stop_async(void **priv);
+CODEC_HANDLE codec_h_open_rd(const char *port_addr);
+int audio_get_pcm_level(void* handle);
+//int audio_set_skip_bytes(void* handle, unsigned int bytes);
+//int audio_get_pts(void* handle);
 
 #endif
